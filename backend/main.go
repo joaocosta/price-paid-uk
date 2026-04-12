@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -20,7 +21,18 @@ const (
 
 func logSlowQuery(query string, args []interface{}, duration time.Duration) {
 	if duration >= SlowQuery {
-		log.Printf("[SLOW QUERY] %v | %s | %v\n", duration, query, args)
+		sql := query
+		for _, arg := range args {
+			var val string
+			switch v := arg.(type) {
+			case string:
+				val = fmt.Sprintf("'%s'", strings.ReplaceAll(v, "'", "''"))
+			default:
+				val = fmt.Sprintf("%v", v)
+			}
+			sql = strings.Replace(sql, "?", val, 1)
+		}
+		log.Printf("[SLOW QUERY] %v\n%s;\n", duration, sql)
 	}
 }
 
