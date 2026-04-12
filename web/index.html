@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UK House Price Explorer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <style>
+        [x-cloak] { display: none !important; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-900 font-sans" x-data="app()">
+    <div class="min-h-screen flex flex-col">
+        <!-- Navigation -->
+        <nav class="bg-white border-b border-slate-200 px-6 py-4 sticky top-0 z-50 shadow-sm">
+            <div class="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div class="flex items-center gap-2">
+                    <div class="bg-blue-600 p-2 rounded-lg">
+                        <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg>
+                    </div>
+                    <div>
+                        <h1 class="text-xl font-bold tracking-tight">UK Price Paid Explorer</h1>
+                        <p class="text-xs text-slate-500 font-medium">HM Land Registry Open Data</p>
+                    </div>
+                </div>
+
+                <!-- Global Filters -->
+                <div class="flex flex-wrap items-center gap-3">
+                    <div class="relative">
+                        <select x-model="filters.city" class="appearance-none bg-slate-100 border-none rounded-lg py-2 pl-4 pr-10 text-sm focus:ring-2 focus:ring-blue-500 font-medium">
+                            <option value="">All Cities</option>
+                            <template x-for="c in cities" :key="c">
+                                <option :value="c" x-text="c"></option>
+                            </template>
+                        </select>
+                        <div class="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none text-slate-400">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7"></path></svg>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center gap-2 bg-slate-100 rounded-lg px-3 py-1">
+                        <span class="text-[10px] font-bold text-slate-400 uppercase">Price</span>
+                        <input type="number" x-model="filters.minPrice" placeholder="Min" class="w-20 bg-transparent border-none text-sm font-medium focus:ring-0">
+                        <span class="text-slate-300">-</span>
+                        <input type="number" x-model="filters.maxPrice" placeholder="Max" class="w-20 bg-transparent border-none text-sm font-medium focus:ring-0">
+                    </div>
+                    
+                    <div class="flex items-center gap-2 bg-slate-100 rounded-lg px-3 py-1 min-w-[140px]">
+                        <span class="text-[10px] font-bold text-slate-400 uppercase">Postcode</span>
+                        <input type="text" 
+                               x-model="filters.postcode" 
+                               placeholder="SW1A..." 
+                               class="w-full bg-transparent border-none text-sm font-medium focus:ring-0 uppercase placeholder:normal-case">
+                    </div>
+
+                    <div class="flex items-center gap-2 bg-slate-100 rounded-lg px-3 py-1">
+                        <label class="text-[10px] font-bold text-slate-400 uppercase">From</label>
+                        <input type="date" x-model="filters.startDate" class="bg-transparent border-none text-sm font-medium focus:ring-0">
+                    </div>
+
+                    <div class="flex items-center gap-2 bg-slate-100 rounded-lg px-3 py-1">
+                        <label class="text-[10px] font-bold text-slate-400 uppercase">To</label>
+                        <input type="date" x-model="filters.endDate" class="bg-transparent border-none text-sm font-medium focus:ring-0">
+                    </div>
+
+                    <button @click="refreshData()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-bold transition-colors shadow-sm active:scale-95 flex items-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                        Search
+                    </button>
+                    
+                    <button @click="resetFilters()" class="text-xs font-bold text-slate-400 hover:text-blue-600 transition-colors px-2">
+                        Reset
+                    </button>
+                </div>
+            </div>
+        </nav>
+
+        <main class="flex-grow p-4 md:p-8 max-w-7xl mx-auto w-full space-y-8">
+            <!-- Property History Modal -->
+            <div x-show="showHistory" 
+                 x-cloak
+                 class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm"
+                 @keydown.escape.window="showHistory = false">
+                <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden"
+                     @click.away="showHistory = false">
+                    <!-- Modal Header -->
+                    <div class="p-6 border-b border-slate-100 flex items-start justify-between bg-slate-50">
+                        <div>
+                            <h2 class="text-xl font-bold text-slate-900" x-text="activeAddress"></h2>
+                            <p class="text-sm text-slate-500 font-mono mt-1" x-text="activePostcode"></p>
+                        </div>
+                        <button @click="showHistory = false" class="text-slate-400 hover:text-slate-600 p-2 hover:bg-slate-200 rounded-full transition-all">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                        </button>
+                    </div>
+
+                    <!-- Modal Content -->
+                    <div class="flex-grow overflow-y-auto p-6 space-y-6">
+                        <template x-if="loadingHistory">
+                            <div class="flex flex-col items-center justify-center py-12 text-slate-400">
+                                <div class="animate-spin rounded-full h-10 w-10 border-4 border-blue-600 border-t-transparent mb-4"></div>
+                                <p class="font-medium">Retrieving history...</p>
+                            </div>
+                        </template>
+
+                        <template x-if="!loadingHistory">
+                            <div class="space-y-4">
+                                <div class="bg-blue-50 rounded-xl p-4 flex items-center justify-between border border-blue-100">
+                                    <div>
+                                        <p class="text-xs font-bold text-blue-600 uppercase tracking-wider">Price Change</p>
+                                        <p class="text-lg font-bold text-blue-900" x-text="calculateChange()"></p>
+                                    </div>
+                                    <div class="text-right">
+                                        <p class="text-xs font-bold text-blue-600 uppercase tracking-wider">Transactions</p>
+                                        <p class="text-lg font-bold text-blue-900" x-text="historyRecords.length"></p>
+                                    </div>
+                                </div>
+
+                                <div class="space-y-3">
+                                    <template x-for="h in historyRecords" :key="h.Transaction_ID">
+                                        <div class="flex items-center justify-between p-4 rounded-xl border border-slate-100 hover:border-blue-200 transition-colors bg-white shadow-sm">
+                                            <div class="flex flex-col">
+                                                <span class="text-lg font-extrabold text-slate-900" x-text="formatCurrency(h.Price)"></span>
+                                                <span class="text-xs text-slate-500 font-medium" x-text="formatDate(h.Date)"></span>
+                                            </div>
+                                            <div class="flex flex-col items-end gap-1">
+                                                <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-slate-100 text-slate-600" x-text="translateType(h.Property_Type)"></span>
+                                            </div>
+                                        </div>
+                                    </template>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+            </div>
+
+            <!-- KPI Section -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+                    <p class="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-2">Total Transactions</p>
+                    <div class="flex items-baseline gap-2">
+                        <span class="text-3xl font-extrabold text-slate-900" x-text="formatNumber(stats.total_count)"></span>
+                        <span class="text-slate-400 text-xs font-medium">sales recorded</span>
+                    </div>
+                </div>
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+                    <p class="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-2">Average Price</p>
+                    <div class="flex items-baseline gap-2">
+                        <span class="text-3xl font-extrabold text-blue-600" x-text="formatCurrency(stats.avg_price)"></span>
+                        <span class="text-slate-400 text-xs font-medium">per property</span>
+                    </div>
+                </div>
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+                    <p class="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-2">Median Price</p>
+                    <div class="flex items-baseline gap-2">
+                        <span class="text-3xl font-extrabold text-emerald-600" x-text="formatCurrency(stats.median_price)"></span>
+                        <span class="text-slate-400 text-xs font-medium">mid-point</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Charts Section -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+                    <h3 class="text-lg font-bold mb-4 text-slate-800">Price Distribution</h3>
+                    <div id="price-hist" class="w-full h-[400px]"></div>
+                </div>
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+                    <h3 class="text-lg font-bold mb-4 text-slate-800">Sales by Property Type</h3>
+                    <div id="type-pie" class="w-full h-[400px]"></div>
+                </div>
+            </div>
+
+            <!-- Table Section -->
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+                <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                    <div>
+                        <h3 class="text-lg font-bold text-slate-800">Latest Transactions</h3>
+                        <p class="text-xs text-slate-500 mt-1">Real-time data from HMLR dataset</p>
+                    </div>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="text-xs font-bold text-slate-500 uppercase tracking-wider bg-slate-50">
+                                <th class="px-6 py-4 border-b">Price</th>
+                                <th class="px-6 py-4 border-b">Date</th>
+                                <th class="px-6 py-4 border-b">Address</th>
+                                <th class="px-6 py-4 border-b">Type</th>
+                                <th class="px-6 py-4 border-b">Location</th>
+                            </tr>
+                        </thead>
+                        <tbody class="text-sm divide-y divide-slate-100">
+                            <template x-for="row in records" :key="row.Transaction_ID">
+                                <tr class="hover:bg-blue-50/50 transition-colors cursor-pointer group" @click="fetchHistory(row)">
+                                    <td class="px-6 py-4 font-bold text-slate-900" x-text="formatCurrency(row.Price)"></td>
+                                    <td class="px-6 py-4 text-slate-600" x-text="formatDate(row.Date)"></td>
+                                    <td class="px-6 py-4">
+                                        <div class="font-medium text-slate-900 group-hover:text-blue-600 transition-colors" x-text="formatAddress(row)"></div>
+                                        <div class="text-xs text-slate-400 font-mono mt-0.5" x-text="row.Postcode || 'N/A'"></div>
+                                    </td>
+                                    <td class="px-6 py-4">
+                                        <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider" 
+                                              :class="{
+                                                'bg-blue-100 text-blue-700': row.Property_Type === 'D',
+                                                'bg-emerald-100 text-emerald-700': row.Property_Type === 'S',
+                                                'bg-amber-100 text-amber-700': row.Property_Type === 'T',
+                                                'bg-purple-100 text-purple-700': row.Property_Type === 'F',
+                                                'bg-slate-100 text-slate-700': row.Property_Type === 'O'
+                                              }"
+                                              x-text="translateType(row.Property_Type)"></span>
+                                    </td>
+                                    <td class="px-6 py-4 text-slate-600">
+                                        <div class="font-medium" x-text="row.Town_City"></div>
+                                        <div class="text-[10px] opacity-60 uppercase" x-text="row.District"></div>
+                                    </td>
+                                </tr>
+                            </template>
+                            <template x-if="loading">
+                                <tr>
+                                    <td colspan="6" class="px-6 py-12 text-center text-slate-400">
+                                        <div class="inline-block animate-spin rounded-full h-8 w-8 border-4 border-blue-600 border-t-transparent mb-2"></div>
+                                        <p class="text-sm font-medium">Querying 31 million records...</p>
+                                    </td>
+                                </tr>
+                            </template>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-between items-center">
+                    <span class="text-xs text-slate-500" x-text="`Showing ${records.length} of ${formatNumber(stats.total_count)} results` font-medium"></span>
+                    <button @click="loadMore()" x-show="!loading && hasMore" class="text-blue-600 hover:text-blue-800 text-sm font-bold flex items-center gap-1">
+                        Load More
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7"></path></svg>
+                    </button>
+                </div>
+            </div>
+        </main>
+
+        <!-- Footer / Attribution -->
+        <footer class="bg-white border-t border-slate-200 mt-12 py-8 px-6">
+            <div class="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-6">
+                <div class="text-slate-500 text-sm space-y-1">
+                    <p class="font-semibold text-slate-700">OGL v3.0 Compliance</p>
+                    <p>Contains public sector information licensed under the <a href="https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/" class="text-blue-600 underline">Open Government Licence v3.0</a>.</p>
+                    <p>Data Source: <span class="font-medium">HM Land Registry Price Paid Data</span></p>
+                </div>
+                <div class="flex gap-4">
+                    <a href="#" class="text-slate-400 hover:text-slate-600 transition-colors">Documentation</a>
+                    <a href="#" class="text-slate-400 hover:text-slate-600 transition-colors">API Status</a>
+                </div>
+            </div>
+        </footer>
+    </div>
+
+    <script>
+        const API_BASE = "http://localhost:8000";
+
+        function app() {
+            return {
+                cities: [],
+                records: [],
+                stats: { total_count: 0, avg_price: 0, median_price: 0 },
+                filters: { city: '', postcode: '', startDate: '', endDate: '', minPrice: '', maxPrice: '' },
+                loading: false,
+                loadingHistory: false,
+                showHistory: false,
+                historyRecords: [],
+                activeAddress: '',
+                activePostcode: '',
+                offset: 0,
+
+                get hasMore() {
+                    return this.records.length < this.stats.total_count;
+                },
+
+                async init() {
+                    // Default to last 1 year
+                    const today = new Date();
+                    const lastYear = new Date();
+                    lastYear.setFullYear(today.getFullYear() - 1);
+                    
+                    this.filters.startDate = lastYear.toISOString().split('T')[0];
+                    this.filters.endDate = today.toISOString().split('T')[0];
+
+                    this.fetchCities();
+                    this.refreshData();
+                },
+
+                resetFilters() {
+                    const today = new Date();
+                    const lastYear = new Date();
+                    lastYear.setFullYear(today.getFullYear() - 1);
+                    
+                    this.filters.city = '';
+                    this.filters.postcode = '';
+                    this.filters.minPrice = '';
+                    this.filters.maxPrice = '';
+                    this.filters.startDate = lastYear.toISOString().split('T')[0];
+                    this.filters.endDate = today.toISOString().split('T')[0];
+                    this.refreshData();
+                },
+
+                async fetchCities() {
+                    const res = await fetch(`${API_BASE}/cities`);
+                    this.cities = await res.json();
+                },
+
+                async refreshData() {
+                    this.loading = true;
+                    this.offset = 0;
+                    this.records = [];
+                    await Promise.all([
+                        this.fetchStats(),
+                        this.fetchRecords()
+                    ]);
+                    this.updateCharts();
+                    this.loading = false;
+                },
+
+                async fetchStats() {
+                    let url = `${API_BASE}/stats?`;
+                    if (this.filters.city) url += `town=${encodeURIComponent(this.filters.city)}&`;
+                    if (this.filters.postcode) url += `postcode=${encodeURIComponent(this.filters.postcode)}&`;
+                    if (this.filters.minPrice) url += `min_price=${this.filters.minPrice}&`;
+                    if (this.filters.maxPrice) url += `max_price=${this.filters.maxPrice}&`;
+                    if (this.filters.startDate) url += `start_date=${this.filters.startDate}&`;
+                    if (this.filters.endDate) url += `end_date=${this.filters.endDate}`;
+                    const res = await fetch(url);
+                    this.stats = await res.json();
+                },
+
+                async fetchRecords() {
+                    this.loading = true;
+                    let url = `${API_BASE}/search?limit=50&offset=${this.offset}`;
+                    if (this.filters.city) url += `&town=${encodeURIComponent(this.filters.city)}`;
+                    if (this.filters.postcode) url += `&postcode=${encodeURIComponent(this.filters.postcode)}`;
+                    if (this.filters.minPrice) url += `&min_price=${this.filters.minPrice}`;
+                    if (this.filters.maxPrice) url += `&max_price=${this.filters.maxPrice}`;
+                    if (this.filters.startDate) url += `&start_date=${this.filters.startDate}`;
+                    if (this.filters.endDate) url += `&end_date=${this.filters.endDate}`;
+                    const res = await fetch(url);
+                    const newRecords = await res.json();
+                    this.records = [...this.records, ...newRecords];
+                    this.loading = false;
+                },
+
+                async loadMore() {
+                    this.offset += 50;
+                    await this.fetchRecords();
+                },
+
+                async fetchHistory(row) {
+                    this.activeAddress = this.formatAddress(row);
+                    this.activePostcode = row.Postcode;
+                    this.showHistory = true;
+                    this.loadingHistory = true;
+                    this.historyRecords = [];
+
+                    try {
+                        let url = `${API_BASE}/history?postcode=${encodeURIComponent(row.Postcode)}`;
+                        if (row.PAON) url += `&paon=${encodeURIComponent(row.PAON)}`;
+                        if (row.SAON) url += `&saon=${encodeURIComponent(row.SAON)}`;
+                        if (row.Street) url += `&street=${encodeURIComponent(row.Street)}`;
+                        
+                        const res = await fetch(url);
+                        this.historyRecords = await res.json();
+                    } catch (e) {
+                        console.error("Failed to fetch history", e);
+                    } finally {
+                        this.loadingHistory = false;
+                    }
+                },
+
+                calculateChange() {
+                    if (this.historyRecords.length < 2) return "First recorded sale";
+                    const latest = this.historyRecords[0].Price;
+                    const oldest = this.historyRecords[this.historyRecords.length - 1].Price;
+                    const diff = latest - oldest;
+                    const pct = ((diff / oldest) * 100).toFixed(1);
+                    const sign = diff >= 0 ? '+' : '';
+                    return `${sign}${this.formatCurrency(Math.abs(diff))} (${sign}${pct}%)`;
+                },
+
+                updateCharts() {
+                    // Logic for Property Type Pie Chart
+                    const types = {};
+                    this.records.forEach(r => {
+                        const t = this.translateType(r.Property_Type);
+                        types[t] = (types[t] || 0) + 1;
+                    });
+
+                    const pieData = [{
+                        values: Object.values(types),
+                        labels: Object.keys(types),
+                        type: 'pie',
+                        hole: .4,
+                        marker: { colors: ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'] }
+                    }];
+
+                    Plotly.newPlot('type-pie', pieData, { 
+                        margin: { t: 0, b: 0, l: 0, r: 0 },
+                        showlegend: true,
+                        legend: { orientation: 'h', y: -0.1 }
+                    });
+
+                    // Logic for Price Histogram
+                    const prices = this.records.map(r => r.Price);
+                    const histData = [{
+                        x: prices,
+                        type: 'histogram',
+                        marker: { color: '#3b82f6' },
+                    }];
+
+                    Plotly.newPlot('price-hist', histData, {
+                        margin: { t: 10, b: 40, l: 60, r: 10 },
+                        xaxis: { title: 'Price (£)' },
+                        yaxis: { title: 'Volume' }
+                    });
+                },
+
+                translateType(code) {
+                    const map = { 'D': 'Detached', 'S': 'Semi', 'T': 'Terraced', 'F': 'Flat', 'O': 'Other' };
+                    return map[code] || code;
+                },
+
+                formatAddress(record) {
+                    let parts = [];
+                    if (record.SAON && record.SAON !== 'None' && record.SAON !== '') parts.push(record.SAON);
+                    if (record.PAON && record.PAON !== 'None' && record.PAON !== '') parts.push(record.PAON);
+                    if (record.Street && record.Street !== 'None' && record.Street !== '') parts.push(record.Street);
+                    return parts.join(' ') || 'Address not listed';
+                },
+
+                formatCurrency(val) {
+                    return new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP', maximumFractionDigits: 0 }).format(val);
+                },
+
+                formatNumber(val) {
+                    return new Intl.NumberFormat('en-GB').format(val);
+                },
+
+                formatDate(dateStr) {
+                    return new Date(dateStr).toLocaleDateString('en-GB', { year: 'numeric', month: 'short', day: 'numeric' });
+                }
+            }
+        }
+    </script>
+</body>
+</html>

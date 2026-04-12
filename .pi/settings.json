@@ -1,0 +1,8 @@
+{
+  "thinking_level": 3,
+  "enabled_skills": [
+    "debug-helper",
+    "web-search",
+    "web-fetch"
+  ]
+}

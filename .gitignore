@@ -1,0 +1,8 @@
+# Build artifacts
+backend/backend
+backend/api-bin
+
+# Environments
+data-loader/venv/
+
+prices.db
