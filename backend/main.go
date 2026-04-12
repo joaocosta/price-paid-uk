@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"sort"
 	"strings"
 	"time"
 
@@ -52,6 +53,60 @@ type PriceRecord struct {
 
 var db *sql.DB
 
+func getSQLiteCompileOptions(db *sql.DB) ([]string, error) {
+	rows, err := db.Query("PRAGMA compile_options")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var options []string
+	for rows.Next() {
+		var option string
+		if err := rows.Scan(&option); err != nil {
+			return nil, err
+		}
+		options = append(options, option)
+	}
+
+	sort.Strings(options)
+	return options, rows.Err()
+}
+
+func summarizeSQLiteCompileOptions(options []string) []string {
+	var summary []string
+	for _, option := range options {
+		if strings.HasPrefix(option, "ENABLE_") {
+			summary = append(summary, option)
+			continue
+		}
+
+		switch {
+		case option == "DIRECT_OVERFLOW_READ":
+			summary = append(summary, option)
+		case strings.HasPrefix(option, "THREADSAFE="):
+			summary = append(summary, option)
+		case strings.HasPrefix(option, "TEMP_STORE="):
+			summary = append(summary, option)
+		case strings.HasPrefix(option, "DEFAULT_SYNCHRONOUS="):
+			summary = append(summary, option)
+		case strings.HasPrefix(option, "DEFAULT_WAL_SYNCHRONOUS="):
+			summary = append(summary, option)
+		}
+	}
+
+	return summary
+}
+
+func hasSQLiteCompileOption(options []string, target string) bool {
+	for _, option := range options {
+		if option == target {
+			return true
+		}
+	}
+	return false
+}
+
 func main() {
 	var err error
 	// Open SQLite in Read-Only mode for safety
@@ -60,6 +115,21 @@ func main() {
 		log.Fatal(err)
 	}
 	defer db.Close()
+
+	var sqliteVersion string
+	if err := db.QueryRow("SELECT sqlite_version()").Scan(&sqliteVersion); err != nil {
+		log.Fatal(err)
+	}
+	log.Printf("Using SQLite library version %s", sqliteVersion)
+
+	compileOptions, err := getSQLiteCompileOptions(db)
+	if err != nil {
+		log.Fatal(err)
+	}
+	if !hasSQLiteCompileOption(compileOptions, "ENABLE_STAT4") {
+		log.Fatal("SQLite library is missing ENABLE_STAT4; refusing to start because postcode query planning depends on it")
+	}
+	log.Printf("SQLite compile options: %s", strings.Join(summarizeSQLiteCompileOptions(compileOptions), ", "))
 
 	r := gin.Default()
 

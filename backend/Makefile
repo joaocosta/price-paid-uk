@@ -9,12 +9,12 @@ all: build
 
 # Standard build
 build:
-	go build -o $(BINARY_NAME) $(SOURCE_DIR)/main.go
+	CGO_ENABLED=1 go build -tags "sqlite_stat4 linux" -o $(BINARY_NAME) $(SOURCE_DIR)/main.go
 
 # 100% Truly Static Binary
 # Note: Requires cgo for sqlite3, and -extldflags "-static" for full portability
 static:
-	CGO_ENABLED=1 go build \
+	CGO_ENABLED=1 go build -tags "sqlite_stat4 linux" \
 		-ldflags="-s -w -extldflags '-static'" \
 		-o $(BINARY_NAME) \
 		$(SOURCE_DIR)/main.go
@@ -31,7 +31,7 @@ clean:
 
 # Cross-compile for Linux (Static)
 build-linux:
-	CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build \
+	CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -tags "sqlite_stat4 linux" \
 		-ldflags="-s -w -extldflags '-static'" \
 		-o api-linux \
 		$(SOURCE_DIR)/main.go
