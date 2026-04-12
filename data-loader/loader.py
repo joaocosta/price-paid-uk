@@ -27,8 +27,9 @@ Monthly Update: python sync_prices.py pp-monthly.csv
 """
 
 # Column headers based on GOV.UK documentation
-    "Transaction_ID", "Price", "Date", "Postcode", "Property_Type", 
-    "Old_New", "Duration", "PAON", "SAON", "Street", 
+HEADERS = [
+    "Transaction_ID", "Price", "Date", "Postcode", "Property_Type",
+    "Old_New", "Duration", "PAON", "SAON", "Street",
     "Locality", "Town_City", "District", "County", "PPD_Category", "Status"
 ]
 
@@ -100,6 +101,19 @@ def normalize_cities(conn):
         cursor.execute(sql)
     conn.commit()
 
+def create_postcode_map(conn):
+    print("Rebuilding Postcode_TownCity_map...")
+    cursor = conn.cursor()
+    cursor.execute("DROP TABLE IF EXISTS Postcode_TownCity_map;")
+    cursor.execute("""
+    CREATE TABLE Postcode_TownCity_map AS
+    SELECT DISTINCT Postcode, Town_City
+    FROM land_registry_prices
+    WHERE Postcode IS NOT NULL;
+    """)
+    cursor.execute("CREATE INDEX idx_postcode_map_postcode ON Postcode_TownCity_map(Postcode);")
+    conn.commit()
+
 def create_indexes(conn):
     print("Creating indexes (this may take a few minutes for 31M rows)...")
     cursor = conn.cursor()
@@ -124,52 +138,53 @@ def sync_data(file_path):
     csv_chunk_size = 250000
     start_time = time.time()
     total_processed = 0
-    
+
     print(f"Starting optimized sync of {file_path}...")
-    
+ 
     # SQL for Upsert
-    sql = """INSERT OR REPLACE INTO land_registry_prices 
-             (Transaction_ID, Price, Date, Postcode, Property_Type, 
-              Old_New, Duration, PAON, SAON, Street, 
-              Locality, Town_City, District, County, PPD_Category) 
+    sql = """INSERT OR REPLACE INTO land_registry_prices
+             (Transaction_ID, Price, Date, Postcode, Property_Type,
+              Old_New, Duration, PAON, SAON, Street,
+              Locality, Town_City, District, County, PPD_Category)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"""
 
     for chunk in pd.read_csv(file_path, names=HEADERS, chunksize=csv_chunk_size, low_memory=False):
         # 1. Handle Deletions (Status 'D')
         deletions = chunk[chunk['Status'] == 'D']['Transaction_ID'].tolist()
         if deletions:
-            cursor.executemany("DELETE FROM land_registry_prices WHERE Transaction_ID = ?", 
+            cursor.executemany("DELETE FROM land_registry_prices WHERE Transaction_ID = ?",
                              [(tid,) for tid in deletions])
 
         # 2. Prepare Additions/Changes (Status 'A' or 'C')
         upsert_data = chunk[chunk['Status'] != 'D'].copy()
-        
+ 
         # Fast Date conversion (slice first 16 chars: YYYY-MM-DD HH:MM)
         upsert_data['Date'] = upsert_data['Date'].str.slice(0, 16)
-        
+
         # Replace NaN with None
         upsert_data = upsert_data.where(pd.notnull(upsert_data), None)
-        
+
         # Columns to insert (everything except Status)
         cols = [c for c in HEADERS if c != "Status"]
-        
+
         # Batch execute
         cursor.executemany(sql, upsert_data[cols].values.tolist())
-        
+
         total_processed += len(chunk)
         elapsed = time.time() - start_time
         rows_per_sec = total_processed / elapsed
         print(f"Processed {total_processed:,} rows... ({rows_per_sec:,.0f} rows/sec)")
-        
+
         # Commit every chunk
         conn.commit()
 
     normalize_cities(conn)
     create_indexes(conn)
+    create_postcode_map(conn)
 
     print(f"Sync complete! Total rows processed: {total_processed:,}")
     print(f"Total time: {time.time() - start_time:.2f}s")
-    
+
     print("Finalizing (VACUUM & ANALYZE)...")
     conn.execute("VACUUM;")
     conn.execute("ANALYZE;")
