@@ -107,6 +107,44 @@ func hasSQLiteCompileOption(options []string, target string) bool {
 	return false
 }
 
+func normalizedPostcodePrefix(postcode string) string {
+	return strings.ToUpper(strings.TrimSpace(postcode))
+}
+
+func nextASCIIPrefix(s string) (string, bool) {
+	if s == "" {
+		return "", false
+	}
+
+	buf := []byte(s)
+	for i := len(buf) - 1; i >= 0; i-- {
+		if buf[i] == 0xFF {
+			continue
+		}
+		buf[i]++
+		return string(buf[:i+1]), true
+	}
+
+	return "", false
+}
+
+func appendPostcodePrefixFilter(query string, args []interface{}, postcode string) (string, []interface{}) {
+	prefix := normalizedPostcodePrefix(postcode)
+	if prefix == "" {
+		return query, args
+	}
+
+	query += " AND Postcode >= ?"
+	args = append(args, prefix)
+
+	if upperBound, ok := nextASCIIPrefix(prefix); ok {
+		query += " AND Postcode < ?"
+		args = append(args, upperBound)
+	}
+
+	return query, args
+}
+
 func main() {
 	var err error
 	// Open SQLite in Read-Only mode for safety
@@ -181,8 +219,7 @@ func getStats(c *gin.Context) {
 		args = append(args, town)
 	}
 	if postcode != "" {
-        query += " AND Postcode LIKE ?"
-        args = append(args, postcode+"%")
+		query, args = appendPostcodePrefixFilter(query, args, postcode)
 	}
 	if year != "" {
 		query += " AND Date LIKE ?"
@@ -241,8 +278,7 @@ func searchPrices(c *gin.Context) {
 		args = append(args, town)
 	}
 	if postcode != "" {
-        query += " AND Postcode LIKE ?"
-        args = append(args, postcode+"%")
+		query, args = appendPostcodePrefixFilter(query, args, postcode)
 	}
 	if minPrice != "" {
 		query += " AND Price >= ?"

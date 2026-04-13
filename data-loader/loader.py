@@ -101,19 +101,6 @@ def normalize_cities(conn):
         cursor.execute(sql)
     conn.commit()
 
-def create_postcode_map(conn):
-    print("Rebuilding Postcode_TownCity_map...")
-    cursor = conn.cursor()
-    cursor.execute("DROP TABLE IF EXISTS Postcode_TownCity_map;")
-    cursor.execute("""
-    CREATE TABLE Postcode_TownCity_map AS
-    SELECT DISTINCT Postcode, Town_City
-    FROM land_registry_prices
-    WHERE Postcode IS NOT NULL;
-    """)
-    cursor.execute("CREATE INDEX idx_postcode_map_postcode ON Postcode_TownCity_map(Postcode);")
-    conn.commit()
-
 def create_indexes(conn):
     print("Creating indexes (this may take a few minutes for 31M rows)...")
     cursor = conn.cursor()
@@ -180,7 +167,6 @@ def sync_data(file_path):
 
     normalize_cities(conn)
     create_indexes(conn)
-    create_postcode_map(conn)
 
     print(f"Sync complete! Total rows processed: {total_processed:,}")
     print(f"Total time: {time.time() - start_time:.2f}s")
