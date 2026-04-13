@@ -223,7 +223,18 @@
                                 <tr>
                                     <td colspan="6" class="px-6 py-12 text-center text-slate-400">
                                         <div class="inline-block animate-spin rounded-full h-8 w-8 border-4 border-blue-600 border-t-transparent mb-2"></div>
-                                        <p class="text-sm font-medium">Querying 31 million records...</p>
+                                        <p class="text-sm font-medium">Querying database...</p>
+                                    </td>
+                                </tr>
+                            </template>
+                            <template x-if="error">
+                                <tr>
+                                    <td colspan="6" class="px-6 py-8 text-center text-red-500 bg-red-50">
+                                        <div class="flex items-center justify-center gap-2">
+                                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                            <p class="text-sm font-bold" x-text="error"></p>
+                                        </div>
+                                        <button @click="records.length > 0 ? loadMore() : refreshData()" class="mt-2 text-xs underline font-medium hover:text-red-700">Try again</button>
                                     </td>
                                 </tr>
                             </template>
@@ -266,6 +277,7 @@
                 stats: { total_count: 0, avg_price: 0, median_price: 0 },
                 filters: { city: '', postcode: '', startDate: '', endDate: '', minPrice: '', maxPrice: '' },
                 loading: false,
+                error: null,
                 loadingHistory: false,
                 showHistory: false,
                 historyRecords: [],
@@ -311,14 +323,21 @@
 
                 async refreshData() {
                     this.loading = true;
+                    this.error = null;
                     this.offset = 0;
                     this.records = [];
-                    await Promise.all([
-                        this.fetchStats(),
-                        this.fetchRecords()
-                    ]);
-                    this.updateCharts();
-                    this.loading = false;
+                    try {
+                        await Promise.all([
+                            this.fetchStats(),
+                            this.fetchRecords()
+                        ]);
+                        this.updateCharts();
+                    } catch (e) {
+                        console.error("Refresh failed", e);
+                        this.error = "Failed to load data. Please check your connection and try again.";
+                    } finally {
+                        this.loading = false;
+                    }
                 },
 
                 async fetchStats() {
@@ -330,11 +349,11 @@
                     if (this.filters.startDate) url += `start_date=${this.filters.startDate}&`;
                     if (this.filters.endDate) url += `end_date=${this.filters.endDate}`;
                     const res = await fetch(url);
+                    if (!res.ok) throw new Error('Stats request failed');
                     this.stats = await res.json();
                 },
 
                 async fetchRecords() {
-                    this.loading = true;
                     let url = `${API_BASE}/search?limit=50&offset=${this.offset}`;
                     if (this.filters.city) url += `&town=${encodeURIComponent(this.filters.city)}`;
                     if (this.filters.postcode) url += `&postcode=${encodeURIComponent(this.filters.postcode)}`;
@@ -343,14 +362,24 @@
                     if (this.filters.startDate) url += `&start_date=${this.filters.startDate}`;
                     if (this.filters.endDate) url += `&end_date=${this.filters.endDate}`;
                     const res = await fetch(url);
+                    if (!res.ok) throw new Error('Search request failed');
                     const newRecords = await res.json();
                     this.records = [...this.records, ...newRecords];
-                    this.loading = false;
                 },
 
                 async loadMore() {
+                    this.loading = true;
+                    this.error = null;
                     this.offset += 50;
-                    await this.fetchRecords();
+                    try {
+                        await this.fetchRecords();
+                    } catch (e) {
+                        console.error("Load more failed", e);
+                        this.error = "Failed to load more records.";
+                        this.offset -= 50; // Rollback offset on failure
+                    } finally {
+                        this.loading = false;
+                    }
                 },
 
                 async fetchHistory(row) {
