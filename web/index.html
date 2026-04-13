@@ -186,21 +186,24 @@
                     <table class="w-full text-left border-collapse">
                         <thead>
                             <tr class="text-xs font-bold text-slate-500 uppercase tracking-wider bg-slate-50">
-                                <th class="px-6 py-4 border-b">Price</th>
                                 <th class="px-6 py-4 border-b">Date</th>
                                 <th class="px-6 py-4 border-b">Address</th>
-                                <th class="px-6 py-4 border-b">Type</th>
                                 <th class="px-6 py-4 border-b">Location</th>
+                                <th class="px-6 py-4 border-b">Type</th>
+                                <th class="px-6 py-4 border-b">Price</th>
                             </tr>
                         </thead>
                         <tbody class="text-sm divide-y divide-slate-100">
                             <template x-for="row in records" :key="row.Transaction_ID">
                                 <tr class="hover:bg-blue-50/50 transition-colors cursor-pointer group" @click="fetchHistory(row)">
-                                    <td class="px-6 py-4 font-bold text-slate-900" x-text="formatCurrency(row.Price)"></td>
                                     <td class="px-6 py-4 text-slate-600" x-text="formatDate(row.Date)"></td>
                                     <td class="px-6 py-4">
                                         <div class="font-medium text-slate-900 group-hover:text-blue-600 transition-colors" x-text="formatAddress(row)"></div>
                                         <div class="text-xs text-slate-400 font-mono mt-0.5" x-text="row.Postcode || 'N/A'"></div>
+                                    </td>
+                                    <td class="px-6 py-4 text-slate-600">
+                                        <div class="font-medium" x-text="row.Town_City"></div>
+                                        <div class="text-[10px] opacity-60 uppercase" x-text="row.District"></div>
                                     </td>
                                     <td class="px-6 py-4">
                                         <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider" 
@@ -213,10 +216,7 @@
                                               }"
                                               x-text="translateType(row.Property_Type)"></span>
                                     </td>
-                                    <td class="px-6 py-4 text-slate-600">
-                                        <div class="font-medium" x-text="row.Town_City"></div>
-                                        <div class="text-[10px] opacity-60 uppercase" x-text="row.District"></div>
-                                    </td>
+                                    <td class="px-6 py-4 font-bold text-slate-900" x-text="formatCurrency(row.Price)"></td>
                                 </tr>
                             </template>
                             <template x-if="loading">
