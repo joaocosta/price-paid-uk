@@ -83,107 +83,146 @@
                  x-cloak
                  class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm"
                  @keydown.escape.window="showHistory = false">
-                <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden"
-                     @click.away="showHistory = false">
-                    <!-- Modal Header -->
-                    <div class="p-6 border-b border-slate-100 flex items-start justify-between bg-slate-50">
-                        <div>
-                            <h2 class="text-xl font-bold text-slate-900" x-text="activeAddress"></h2>
-                            <p class="text-sm text-slate-500 font-mono mt-1" x-text="activePostcode"></p>
+                
+                <div @click.away="showHistory = false" 
+                     class="bg-white rounded-3xl shadow-2xl w-full max-w-5xl overflow-hidden flex flex-col md:flex-row max-h-[90vh]">
+                    
+                    <!-- Main Content: History -->
+                    <div class="flex-1 overflow-y-auto p-6 flex flex-col">
+                        <div class="flex justify-between items-start mb-6">
+                            <div>
+                                <h2 class="text-2xl font-black text-slate-900" x-text="activeAddress"></h2>
+                                <p class="text-sm text-slate-500 font-mono" x-text="activePostcode"></p>
+                            </div>
+                            <button @click="showHistory = false" class="text-slate-400 hover:text-slate-600 transition-colors p-2 hover:bg-slate-100 rounded-full">
+                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                            </button>
                         </div>
-                        <button @click="showHistory = false" class="text-slate-400 hover:text-slate-600 p-2 hover:bg-slate-200 rounded-full transition-all">
-                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-                        </button>
+
+                        <div class="space-y-4 flex-1">
+                            <template x-if="loadingHistory">
+                                <div class="flex flex-col items-center justify-center py-12 text-slate-400">
+                                    <div class="animate-spin rounded-full h-8 w-8 border-4 border-blue-600 border-t-transparent mb-2"></div>
+                                    <p class="text-sm font-medium">Loading history...</p>
+                                </div>
+                            </template>
+                            
+                            <template x-if="!loadingHistory">
+                                <div class="space-y-4">
+                                    <!-- Overall Summary Card -->
+                                    <div class="grid grid-cols-2 gap-4 mb-6">
+                                        <div class="bg-blue-50 rounded-2xl p-4 border border-blue-100 shadow-sm shadow-blue-50">
+                                            <p class="text-[10px] font-bold text-blue-400 uppercase tracking-widest mb-1">Total Appreciation</p>
+                                            <p class="text-xl font-black text-blue-900" x-text="calculateChange()"></p>
+                                        </div>
+                                        <div class="bg-indigo-50 rounded-2xl p-4 border border-indigo-100 shadow-sm shadow-indigo-50">
+                                            <p class="text-[10px] font-bold text-indigo-400 uppercase tracking-widest mb-1">Lifetime CAGR</p>
+                                            <p class="text-xl font-black text-indigo-900" x-text="calculateOverallReturn()"></p>
+                                        </div>
+                                    </div>
+
+                                    <!-- History Timeline -->
+                                    <div class="space-y-3">
+                                        <template x-for="(event, index) in historyRecords" :key="index">
+                                            <div class="flex items-center gap-4 p-4 rounded-2xl bg-slate-50 border border-slate-100 hover:border-blue-200 transition-all hover:shadow-md hover:shadow-slate-100 group">
+                                                <div class="bg-white p-3 rounded-xl shadow-sm group-hover:bg-blue-600 transition-colors">
+                                                    <svg class="w-5 h-5 text-blue-600 group-hover:text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                                                </div>
+                                                <div class="flex-1">
+                                                    <p class="text-xs font-bold text-slate-400 uppercase" x-text="formatDate(event.Date)"></p>
+                                                    <p class="text-lg font-black text-slate-900" x-text="formatCurrency(event.Price)"></p>
+                                                </div>
+                                                <div class="text-right flex flex-col items-end gap-1">
+                                                    <span class="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-blue-100 text-blue-700" x-text="translateType(event.Property_Type)"></span>
+                                                    <template x-if="historyRecords.length > 1 && index < historyRecords.length - 1">
+                                                        <span class="text-[10px] font-bold text-emerald-600" x-text="`${calculateAnnualReturn(event.Price, historyRecords[index+1].Price, event.Date, historyRecords[index+1].Date)}% p.a.`"></span>
+                                                    </template>
+                                                </div>
+                                            </div>
+                                        </template>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
                     </div>
 
-                    <!-- Modal Content -->
-                    <div class="flex-grow overflow-y-auto p-6 space-y-6">
-                        <template x-if="loadingHistory">
-                            <div class="flex flex-col items-center justify-center py-12 text-slate-400">
-                                <div class="animate-spin rounded-full h-10 w-10 border-4 border-blue-600 border-t-transparent mb-4"></div>
-                                <p class="font-medium">Retrieving history...</p>
-                            </div>
-                        </template>
+                    <!-- Sidebar: Stamp Duty & Scenarios -->
+                    <div class="w-full md:w-80 bg-slate-50 border-l border-slate-100 flex flex-col">
+                        <div class="p-6 space-y-6">
+                            <div class="space-y-2">
+                                <h3 class="text-xs font-black text-slate-400 uppercase tracking-widest">Price Scenarios</h3>
+                                
+                                <div class="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
+                                    <button @click="openScenario = !openScenario" class="w-full p-4 flex items-center justify-between hover:bg-slate-50 transition-colors">
+                                        <span class="text-sm font-bold text-slate-700">Calculator</span>
+                                        <svg class="w-4 h-4 text-slate-400 transition-transform" :class="openScenario ? 'rotate-180' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7"></path></svg>
+                                    </button>
 
-                        <template x-if="!loadingHistory">
-                            <div class="space-y-4">
-                                <div class="bg-blue-50 rounded-xl p-4 flex items-center justify-between border border-blue-100">
-                                    <div class="flex-1">
-                                        <p class="text-xs font-bold text-blue-600 uppercase tracking-wider">
-                                            Price Change
-                                            <template x-if="historyRecords.length >= 2">
-                                                <span x-text="'(' + ((new Date(historyRecords[0].Date) - new Date(historyRecords[historyRecords.length-1].Date)) / (1000 * 60 * 60 * 24 * 365.25)).toFixed(1) + ' yrs)'"></span>
-                                            </template>
-                                        </p>
-                                        <p class="text-lg font-bold text-blue-900" x-text="calculateChange()"></p>
-                                    </div>
-                                    <div class="text-right">
-                                        <p class="text-xs font-bold text-blue-600 uppercase tracking-wider">Overall Return</p>
-                                        <p class="text-lg font-bold text-blue-900" x-text="calculateOverallReturn()"></p>
-                                    </div>
-                                </div>
-
-                                <!-- Sale Price Simulator -->
-                                <div class="p-4 bg-slate-50 rounded-2xl border border-slate-200">
-                                    <h3 class="text-sm font-bold text-slate-800 mb-4 flex items-center gap-2">
-                                        <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
-                                        Sale Price Simulator
-                                    </h3>
-
-                                    <div class="space-y-6">
-                                        <div>
+                                    <div x-show="openScenario" x-collapse class="p-4 pt-0 space-y-4 border-t border-slate-50">
+                                        <!-- Price Simulator -->
+                                        <div class="pt-4">
                                             <div class="flex justify-between items-end mb-2">
-                                                <label class="text-xs font-semibold text-slate-500 uppercase">Projected Sale Price</label>
-                                                <span class="text-xl font-black text-blue-600" x-text="formatCurrency(simulatedPrice)"></span>
+                                                <label class="text-[10px] font-bold text-slate-400 uppercase">Projected Price</label>
+                                                <span class="text-sm font-black text-blue-600" x-text="formatCurrency(simulatedPrice)"></span>
                                             </div>
                                             <input type="range" 
-                                                :min="Math.round((historyRecords[0]?.Price || 0) * 0.5)" 
-                                                :max="Math.round((historyRecords[0]?.Price || 0) * 2.5)" 
-                                                step="1000" 
-                                                x-model="simulatedPrice"
-                                                class="w-full h-2 bg-slate-300 rounded-lg appearance-none cursor-pointer accent-blue-600">
-                                            <div class="flex justify-between text-[10px] font-bold text-slate-400 mt-1">
-                                                <span x-text="`${formatNumber(Math.round((historyRecords[0]?.Price || 0) / 1000))}k (Last)`"></span>
-                                                <span x-text="`${formatNumber(Math.round((historyRecords[0]?.Price || 0) * 2.5 / 1000))}k`"></span>
-                                            </div>
+                                                   :min="historyRecords.length > 0 ? Math.round(historyRecords[0].Price * 0.5) : 0" 
+                                                   :max="historyRecords.length > 0 ? Math.round(historyRecords[0].Price * 2.5) : 1000000" 
+                                                   step="1000" 
+                                                   x-model="simulatedPrice" 
+                                                   class="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600">
                                         </div>
 
-                                        <div class="grid grid-cols-2 gap-3">
-                                            <div class="bg-white p-3 rounded-xl shadow-sm border border-slate-100" :class="simulatedProfit >= 0 ? 'border-emerald-100' : 'border-red-100'">
-                                                <p class="text-[10px] font-bold text-slate-400 uppercase">Est. Profit</p>
-                                                <p class="text-lg font-bold" :class="simulatedProfit >= 0 ? 'text-emerald-600' : 'text-red-600'" x-text="(simulatedProfit >= 0 ? '+' : '') + formatCurrency(simulatedProfit)"></p>
-                                                <p class="text-xs font-medium" :class="simulatedProfit >= 0 ? 'text-emerald-500' : 'text-red-500'" x-text="`${simulatedProfit >= 0 ? '+' : ''}${simulatedProfitPct}% total`"></p>
+                                        <!-- Returns -->
+                                        <div class="p-3 bg-blue-50 rounded-xl border border-blue-100">
+                                            <div class="flex justify-between items-center mb-1">
+                                                <p class="text-[10px] font-bold text-blue-400 uppercase">Annualized Return</p>
+                                                <span class="text-[10px] font-bold text-blue-500 bg-blue-100 px-2 py-0.5 rounded-full" x-text="holdingYears.toFixed(1) + 'y hold'"></span>
                                             </div>
-                                            <div class="bg-white p-3 rounded-xl shadow-sm border border-blue-100">
-                                                <p class="text-[10px] font-bold text-slate-400 uppercase">Annual Return</p>
-                                                <p class="text-lg font-bold text-blue-600" x-text="`${simulatedCAGR}%`"></p>
-                                                <p class="text-xs font-medium text-slate-500" x-text="`Held for ${holdingYears.toFixed(1)} years`"></p>
+                                            <p class="text-lg font-black text-blue-700" x-text="simulatedCAGR + '%'"></p>
+                                        </div>
+
+                                        <!-- Buyer Profile -->
+                                        <div class="grid grid-cols-3 gap-1 bg-slate-100 p-1 rounded-xl">
+                                            <button @click="buyerType = 'first'" :class="buyerType === 'first' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500'" class="text-[8px] font-black uppercase py-2 rounded-lg transition-all">First</button>
+                                            <button @click="buyerType = 'next'" :class="buyerType === 'next' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500'" class="text-[8px] font-black uppercase py-2 rounded-lg transition-all">Next</button>
+                                            <button @click="buyerType = 'additional'" :class="buyerType === 'additional' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500'" class="text-[8px] font-black uppercase py-2 rounded-lg transition-all">Addtl</button>
+                                        </div>
+
+                                        <!-- Tax Breakdown -->
+                                        <div class="space-y-3 pt-2">
+                                            <div class="flex justify-between items-end">
+                                                <p class="text-[10px] font-bold text-slate-400 uppercase">Total SDLT</p>
+                                                <p class="text-xl font-black text-slate-900" x-text="formatCurrency(sdlt.total)"></p>
+                                            </div>
+                                            
+                                            <div class="space-y-2">
+                                                <template x-for="band in sdlt.bands">
+                                                    <div class="space-y-1">
+                                                        <div class="flex justify-between text-[10px] font-bold">
+                                                            <span class="text-slate-400" x-text="band.range + ' (' + band.rate + ')'"></span>
+                                                            <span class="text-slate-900" x-text="formatCurrency(band.tax)"></span>
+                                                        </div>
+                                                        <div class="w-full bg-slate-100 h-1 rounded-full overflow-hidden">
+                                                            <div class="bg-blue-500 h-full" :style="'width: ' + (sdlt.total > 0 ? (band.tax / sdlt.total * 100) : 0) + '%'"></div>
+                                                        </div>
+                                                    </div>
+                                                </template>
+                                            </div>
+
+                                            <div class="pt-2 border-t border-slate-100 flex justify-between items-center">
+                                                <span class="text-[10px] font-bold text-slate-400 uppercase">Effective Rate</span>
+                                                <span class="text-xs font-black text-slate-900" x-text="sdlt.effectiveRate + '%'"></span>
                                             </div>
                                         </div>
                                     </div>
                                 </div>
-
-                                <div class="space-y-3">
-                                    <template x-for="(h, index) in historyRecords" :key="h.Transaction_ID">
-                                        <div class="flex items-center justify-between p-4 rounded-xl border border-slate-100 hover:border-blue-200 transition-colors bg-white shadow-sm">
-                                            <div class="flex flex-col">
-                                                <span class="text-lg font-extrabold text-slate-900" x-text="formatCurrency(h.Price)"></span>
-                                                <span class="text-xs text-slate-500 font-medium" x-text="formatDate(h.Date)"></span>
-                                            </div>
-                                            <div class="flex flex-col items-end gap-1">
-                                                <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-slate-100 text-slate-600" x-text="translateType(h.Property_Type)"></span>
-                                                <template x-if="historyRecords.length > 1 && index < historyRecords.length - 1">
-                                                    <span class="text-[10px] font-bold text-emerald-600" x-text="`${calculateAnnualReturn(h.Price, historyRecords[index+1].Price, h.Date, historyRecords[index+1].Date)}% annualized`"></span>
-                                                </template>
-                                            </div>
-                                        </div>
-                                    </template>
-                                </div>
                             </div>
-                        </template>
+                        </div>
                     </div>
                 </div>
             </div>
+
 
             <!-- KPI Section -->
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -334,6 +373,46 @@
                 activeAddress: '',
                 activePostcode: '',
                 offset: 0,
+                buyerType: 'next',
+                openScenario: false,
+
+                get sdlt() {
+                    const price = Number(this.simulatedPrice) || 0;
+                    let total = 0;
+                    const bands = [];
+                    const surcharge = this.buyerType === 'additional' ? 0.03 : 0;
+                    
+                    let thresholds = [125000, 250000, 925000, 1500000];
+                    let rates = [0, 0.02, 0.05, 0.10, 0.12];
+
+                    if (this.buyerType === 'first' && price <= 500000) {
+                        thresholds = [300000, 925000, 1500000];
+                        rates = [0, 0.05, 0.10, 0.12];
+                    }
+
+                    let lower = 0;
+                    for (let i = 0; i <= thresholds.length; i++) {
+                        let upper = thresholds[i] || Infinity;
+                        let rate = rates[i] + surcharge;
+                        
+                        if (price > lower) {
+                            let taxableInBand = Math.min(price, upper) - lower;
+                            let taxInBand = taxableInBand * rate;
+                            total += taxInBand;
+                            
+                            if (taxableInBand > 0) {
+                                bands.push({
+                                    range: upper === Infinity ? `Above £${this.formatNumber(lower)}` : `£${this.formatNumber(lower)} - £${this.formatNumber(upper)}`,
+                                    rate: (rate * 100).toFixed(0) + '%',
+                                    tax: taxInBand
+                                });
+                            }
+                        }
+                        lower = upper;
+                    }
+
+                    return { total, bands, effectiveRate: price > 0 ? (total / price * 100).toFixed(1) : 0 };
+                },
 
                 get hasMore() {
                     return this.records.length < this.stats.total_count;
@@ -449,6 +528,8 @@
                         this.historyRecords = await res.json();
                         if (this.historyRecords.length > 0) {
                             this.simulatedPrice = this.historyRecords[0].Price;
+                            this.buyerType = 'next';
+                            this.openScenario = false;
                         }
                     } catch (e) {
                         console.error("Failed to fetch history", e);
