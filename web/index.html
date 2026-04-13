@@ -147,8 +147,8 @@
                     </div>
 
                     <!-- Sidebar: Stamp Duty & Scenarios -->
-                    <div class="w-full md:w-80 bg-slate-50 border-l border-slate-100 flex flex-col">
-                        <div class="p-6 space-y-6">
+                    <div class="w-full md:w-80 bg-slate-50 border-l border-slate-100 flex flex-col h-full">
+                        <div class="p-6 space-y-6 overflow-y-auto">
                             <div class="space-y-2">
                                 
                                 <div class="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
@@ -199,23 +199,30 @@
                                                 <p class="text-xl font-black text-slate-900" x-text="formatCurrency(sdlt.total)"></p>
                                             </div>
                                             
-                                            <div class="space-y-2">
-                                                <template x-for="band in sdlt.bands">
-                                                    <div class="space-y-1">
-                                                        <div class="flex justify-between text-[10px] font-bold">
-                                                            <span class="text-slate-400" x-text="band.range + ' (' + band.rate + ')'"></span>
-                                                            <span class="text-slate-900" x-text="formatCurrency(band.tax)"></span>
-                                                        </div>
-                                                        <div class="w-full bg-slate-100 h-1 rounded-full overflow-hidden">
-                                                            <div class="bg-blue-500 h-full" :style="'width: ' + (sdlt.total > 0 ? (band.tax / sdlt.total * 100) : 0) + '%'"></div>
-                                                        </div>
-                                                    </div>
-                                                </template>
-                                            </div>
+                                            <div class="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
+                                                <button @click="openTaxBreakdown = !openTaxBreakdown" class="w-full p-3 flex items-center justify-between hover:bg-slate-50 transition-colors">
+                                                    <span class="text-sm font-bold text-slate-700">Tax Breakdown</span>
+                                                    <svg class="w-4 h-4 text-slate-400 transition-transform" :class="openTaxBreakdown ? 'rotate-180' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7"></path></svg>
+                                                </button>
 
-                                            <div class="pt-2 border-t border-slate-100 flex justify-between items-center">
-                                                <span class="text-[10px] font-bold text-slate-400 uppercase">Effective Rate</span>
-                                                <span class="text-xs font-black text-slate-900" x-text="sdlt.effectiveRate + '%'"></span>
+                                                <div x-show="openTaxBreakdown" x-collapse class="p-3 pt-0 space-y-2 border-t border-slate-50">
+                                                    <template x-for="band in sdlt.bands">
+                                                        <div class="space-y-1">
+                                                            <div class="flex justify-between text-[10px] font-bold">
+                                                                <span class="text-slate-400" x-text="band.range + ' (' + band.rate + ')'"></span>
+                                                                <span class="text-slate-900" x-text="formatCurrency(band.tax)"></span>
+                                                            </div>
+                                                            <div class="w-full bg-slate-100 h-1 rounded-full overflow-hidden">
+                                                                <div class="bg-blue-500 h-full" :style="'width: ' + (sdlt.total > 0 ? (band.tax / sdlt.total * 100) : 0) + '%'"></div>
+                                                            </div>
+                                                        </div>
+                                                    </template>
+
+                                                    <div class="pt-2 border-t border-slate-100 flex justify-between items-center">
+                                                        <span class="text-[10px] font-bold text-slate-400 uppercase">Effective Rate</span>
+                                                        <span class="text-xs font-black text-slate-900" x-text="sdlt.effectiveRate + '%'"></span>
+                                                    </div>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
@@ -378,6 +385,7 @@
                 offset: 0,
                 buyerType: 'next',
                 openScenario: false,
+                openTaxBreakdown: false,
 
                 get sdlt() {
                     const price = Number(this.simulatedPrice) || 0;
