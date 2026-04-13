@@ -27,9 +27,9 @@
                 </div>
 
                 <!-- Global Filters -->
-                <div class="flex flex-wrap items-center gap-3">
+                <form @submit.prevent="refreshData()" class="flex flex-wrap items-center gap-3">
                     <div class="relative">
-                        <select x-model="filters.city" class="appearance-none bg-slate-100 border-none rounded-lg py-2 pl-4 pr-10 text-sm focus:ring-2 focus:ring-blue-500 font-medium">
+                        <select x-model="filters.city" @change="refreshData()" class="appearance-none bg-slate-100 border-none rounded-lg py-2 pl-4 pr-10 text-sm focus:ring-2 focus:ring-blue-500 font-medium">
                             <option value="">All Cities</option>
                             <template x-for="c in cities" :key="c">
                                 <option :value="c" x-text="c"></option>
@@ -57,23 +57,23 @@
 
                     <div class="flex items-center gap-2 bg-slate-100 rounded-lg px-3 py-1">
                         <label class="text-[10px] font-bold text-slate-400 uppercase">From</label>
-                        <input type="date" x-model="filters.startDate" class="bg-transparent border-none text-sm font-medium focus:ring-0">
+                        <input type="date" x-model="filters.startDate" @change="refreshData()" class="bg-transparent border-none text-sm font-medium focus:ring-0">
                     </div>
 
                     <div class="flex items-center gap-2 bg-slate-100 rounded-lg px-3 py-1">
                         <label class="text-[10px] font-bold text-slate-400 uppercase">To</label>
-                        <input type="date" x-model="filters.endDate" class="bg-transparent border-none text-sm font-medium focus:ring-0">
+                        <input type="date" x-model="filters.endDate" @change="refreshData()" class="bg-transparent border-none text-sm font-medium focus:ring-0">
                     </div>
 
-                    <button @click="refreshData()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-bold transition-colors shadow-sm active:scale-95 flex items-center gap-2">
+                    <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-bold transition-colors shadow-sm active:scale-95 flex items-center gap-2">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
                         Search
                     </button>
                     
-                    <button @click="resetFilters()" class="text-xs font-bold text-slate-400 hover:text-blue-600 transition-colors px-2">
+                    <button type="button" @click="resetFilters()" class="text-xs font-bold text-slate-400 hover:text-blue-600 transition-colors px-2">
                         Reset
                     </button>
-                </div>
+                </form>
             </div>
         </nav>
 
