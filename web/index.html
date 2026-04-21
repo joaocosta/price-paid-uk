@@ -152,8 +152,11 @@
                             <div class="space-y-2">
                                 
                                 <div class="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
-                                    <button @click="openScenario = !openScenario" class="w-full p-4 flex items-center justify-between hover:bg-slate-50 transition-colors">
-                                        <span class="text-sm font-bold text-slate-700">Price Scenarios</span>
+                                    <button @click="openScenario = !openScenario" class="w-full p-4 flex items-center justify-between gap-3 text-left hover:bg-slate-50 transition-colors">
+                                        <span class="min-w-0">
+                                            <span class="block text-sm font-bold text-slate-700">If Sold Today</span>
+                                            <span class="block mt-1 text-xs text-slate-500">Enter a sale price to see today&rsquo;s annualised return and stamp duty due</span>
+                                        </span>
                                         <svg class="w-4 h-4 text-slate-400 transition-transform" :class="openScenario ? 'rotate-180' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7"></path></svg>
                                     </button>
 
