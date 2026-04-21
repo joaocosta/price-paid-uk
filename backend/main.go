@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 	"time"
@@ -14,10 +16,11 @@ import (
 )
 
 const (
-	Attribution = "Contains public sector information licensed under the Open Government Licence v3.0."
-	LicenseURL  = "https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/"
-	DBPath      = "../prices.db"
-	SlowQuery   = 3 * time.Second
+	Attribution       = "Contains public sector information licensed under the Open Government Licence v3.0."
+	LicenseURL        = "https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/"
+	DefaultDBFileName = "prices.db"
+	DBPathEnvVar      = "DBPath"
+	SlowQuery         = 3 * time.Second
 )
 
 func logSlowQuery(query string, args []interface{}, duration time.Duration) {
@@ -145,14 +148,34 @@ func appendPostcodePrefixFilter(query string, args []interface{}, postcode strin
 	return query, args
 }
 
+func resolveDBPath() (string, error) {
+	if dbPath := strings.TrimSpace(os.Getenv(DBPathEnvVar)); dbPath != "" {
+		return dbPath, nil
+	}
+
+	executablePath, err := os.Executable()
+	if err != nil {
+		return "", fmt.Errorf("resolve executable path: %w", err)
+	}
+
+	binaryDir := filepath.Dir(executablePath)
+	return filepath.Join(binaryDir, "..", DefaultDBFileName), nil
+}
+
 func main() {
 	var err error
+	dbPath, err := resolveDBPath()
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	// Open SQLite in Read-Only mode for safety
-	db, err = sql.Open("sqlite3", fmt.Sprintf("file:%s?mode=ro", DBPath))
+	db, err = sql.Open("sqlite3", fmt.Sprintf("file:%s?mode=ro", dbPath))
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer db.Close()
+	log.Printf("Using SQLite database at %s", dbPath)
 
 	var sqliteVersion string
 	if err := db.QueryRow("SELECT sqlite_version()").Scan(&sqliteVersion); err != nil {
